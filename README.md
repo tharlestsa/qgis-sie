@@ -2,14 +2,14 @@
 
 ## Description
 
-This Python code provides a custom QGIS plugin widget that allows users to interact with time-series mosaics from Sentinel. It includes functionalities like filtering images by date, zooming to a specific point, and a time-lapse feature that plays through the mosaics in time order. Additionally, it includes a Layer Grid view to display small previews of all layers in a grid.
+This Python code provides a custom QGIS plugin widget that allows users to interact with time-series images from Sentinel. It includes functionalities like filtering images by date, zooming to a specific point, and a time-lapse feature that plays through the images in time order. Additionally, it includes a Layer Grid view to display small previews of all layers in a grid.
 
 ![Sentinel Image Explorer ](./sie.gif)
 
 ## Features
 
-- Filter Planet's mosaics by date range
-- Time-lapse playback through the mosaics
+- Filter Sentinel's images by date range
+- Time-lapse playback through the images
 - Zoom to a specific point
 - Layer Grid for a quick overview
 - Play, Stop, and Remove Layers buttons

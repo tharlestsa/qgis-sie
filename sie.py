@@ -13,7 +13,7 @@ from satsearch import Search
 class Constants:
     STAC_API_URL = 'https://earth-search.aws.element84.com/v0'
     COLLECTION = 'sentinel-s2-l2a-cogs'
-    CLOUD_COVER_LIMIT = 20
+    CLOUD_COVER_LIMIT = 80
 
 
 layerGridDockWidgetInstance = None

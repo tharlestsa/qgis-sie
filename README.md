@@ -81,8 +81,56 @@ This Python code provides a custom QGIS plugin widget that allows users to inter
 - [satsearch GitHub Repository](https://github.com/sat-utils/sat-search)
 - [QGIS Website](https://qgis.org)
 
+## Installing satsearch in QGIS Python Environment on Windows Manually
+
+### Sub-section: Adding `satsearch` and `satstac` to QGIS Python Environment
+
+When you cannot install the `satsearch` and `satstac` packages directly into your QGIS Python environment using package managers like `pip`, you can manually add these libraries. This involves downloading the directories from a specific GitHub repository and then copying them to the appropriate location within the QGIS Python environment.
+
+### Prerequisites
+
+1. You need administrative rights to copy files into `C:\Program Files\QGIS XXX\apps\Python39\Lib`.
+2. Internet access to download `satsearch` and `satstac` directories from the GitHub repository.
+
+### Steps
+
+#### 1. Download the Directories
+
+- Go to the GitHub repository at [https://github.com/tharlestsa/qgis-sie](https://github.com/tharlestsa/qgis-sie).
+- Download the repository to your local machine, either by using the 'Download ZIP' option or by cloning the repository using Git.
+
+#### 2. Locate the Downloaded Directories
+
+Unzip the downloaded repository and navigate to the location where the `satsearch` and `satstac` folders are stored.
+
+#### 3. Locate the QGIS Python Environment
+
+- Open File Explorer and navigate to the Python environment folder inside your QGIS installation, usually located at `C:\Program Files\QGIS XXX\apps\Python39\Lib`. 
+- Here, `XXX` refers to the version of QGIS you have installed.
+
+#### 4. Copy the Directories
+
+- Right-click on the `satsearch` folder and choose `Copy`.
+- Navigate back to the `C:\Program Files\QGIS XXX\apps\Python39\Lib` directory.
+- Right-click in the folder and choose `Paste` to copy the `satsearch` folder here.
+
+Repeat these steps for the `satstac` folder.
+
+#### 5. Administrative Rights
+
+If prompted, confirm that you have the administrative rights to copy files into this directory.
+
+#### 6. Verify the Installation
+
+To ensure that the libraries are correctly installed, you can open the QGIS Python console and try importing `satsearch` and `satstac` by typing the following commands:
+
+```python
+import satsearch
+import satstac
+```
 
 ## Install the Plugin via Python Console
+
 1. Open QGIS.
 2. Open the Python Console (`Plugins -> Python Console` or press `Ctrl+Alt+P`).
 3. Go to the `Show Editor` tab.

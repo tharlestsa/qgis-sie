@@ -13,7 +13,7 @@ from satsearch import Search
 class Constants:
     STAC_API_URL = 'https://earth-search.aws.element84.com/v0'
     COLLECTION = 'sentinel-s2-l2a-cogs'
-    CLOUD_COVER_LIMIT = 80
+    CLOUD_COVER_LIMIT = 5
 
 
 layerGridDockWidgetInstance = None
@@ -23,7 +23,6 @@ def copy_url_to_clipboard(layer):
     clipboard.setText(layer.customProperty("url"))
     msg = iface.messageBar().createMessage("IMAGE TMS", "The URL of TMS was copied to clipboard.")
     iface.messageBar().pushWidget(msg, level=Qgis.Info)
-
 
 class LayerGridDockWidget(QDockWidget):
     def __init__(self, layers):

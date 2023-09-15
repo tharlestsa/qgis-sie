@@ -1,5 +1,6 @@
 import re
 import requests
+from osgeo import gdal
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSlider, QLabel, QDockWidget, QPushButton, QDockWidget, \
     QGridLayout, QComboBox, QLineEdit
 from PyQt5.QtCore import Qt, QTimer, QDate
@@ -11,9 +12,9 @@ from datetime import datetime
 from satsearch import Search
 
 class Constants:
-    STAC_API_URL = 'https://earth-search.aws.element84.com/v0'
-    COLLECTION = 'sentinel-s2-l2a-cogs'
-    CLOUD_COVER_LIMIT = 80
+    STAC_API_URL = 'https://earth-search.aws.element84.com/v1'
+    COLLECTION = 'sentinel-2-l2a'
+    CLOUD_COVER_LIMIT = 10
 
 
 layerGridDockWidgetInstance = None
@@ -75,17 +76,14 @@ class LayerGridDockWidget(QDockWidget):
                 canvas.setLayers([layer])
 
                 self.canvases.append(canvas)
-                copy_url_button = QPushButton('Copy URL')
-                copy_url_button.clicked.connect(lambda clicked, layer=layer: copy_url_to_clipboard(layer))
 
                 self.layout.addWidget(label, row, col)
                 self.layout.addWidget(canvas, row + 1, col)
-                self.layout.addWidget(copy_url_button, row + 2, col)
 
                 col += 1
                 if col > 2:
                     col = 0
-                    row += 3
+                    row += 2
 
         except Exception as e:
             msg = iface.messageBar().createMessage("GRID", f"Error -> {e}")
@@ -192,16 +190,12 @@ class SentinelImageExplorerWidget(QWidget):
 
         self.collectionComboBox = QComboBox()
         self.bandsLineEdit = QLineEdit(self)
-        self.colorFormulaLineEdit = QLineEdit(self)
-        self.bandsLineEdit.setText("B04, B03, B02")
-        self.colorFormulaLineEdit.setText("Gamma+RGB+6+Saturation+2.0+Sigmoidal+RGB+20+0.45")
+        self.bandsLineEdit.setText("red, blue, green")
 
         self.hboxParams.addWidget(QLabel("Collection:"))
         self.hboxParams.addWidget(self.collectionComboBox)
         self.hboxParams.addWidget(QLabel("Bands:"))
         self.hboxParams.addWidget(self.bandsLineEdit)
-        self.hboxParams.addWidget(QLabel("Color Formula:"))
-        self.hboxParams.addWidget(self.colorFormulaLineEdit)
 
         # Add the horizontal layout to the vertical layout
         self.layout.addLayout(self.hbox)
@@ -227,7 +221,7 @@ class SentinelImageExplorerWidget(QWidget):
         self.fetch_collections()
 
     def fetch_collections(self):
-        collections_url = "https://earth-search.aws.element84.com/v0/collections"
+        collections_url = f"{Constants.STAC_API_URL}/collections"
         response = requests.get(collections_url)
 
         if response.status_code == 200:
@@ -235,7 +229,7 @@ class SentinelImageExplorerWidget(QWidget):
             for collection in data["collections"]:
                 self.collectionComboBox.addItem(collection["id"])
         
-        self.collectionComboBox.setCurrentText("sentinel-s2-l2a-cogs")
+        self.collectionComboBox.setCurrentText("sentinel-2-l2a")
         
     def fetch_images(self):
         try:
@@ -245,7 +239,43 @@ class SentinelImageExplorerWidget(QWidget):
         except Exception as e:
             print(f"Error Searching Images: {e}")
             pass
+            
+    def build_and_load_vrt(self, urls, output_name, label):
+        
+        vrt_path = f"/tmp/{output_name}.vrt"
+        
+        options = gdal.BuildVRTOptions(separate=True)
+        gdal.BuildVRT(vrt_path, urls, options=options)
+        
+        layer = QgsRasterLayer(vrt_path, label)
+       
+        if layer.isValid():
+            QgsProject.instance().addMapLayer(layer)
+            QgsProject.instance().layerTreeRoot().findLayer(layer).setItemVisibilityChecked(False)
+            return layer
+        else: 
+            return None
+     
+    def get_datetime_range(self, start_qdate: QDate, end_qdate: QDate):
+        """
+        Convert QDate objects to a datetime range string in RFC3339 format.
+        
+        Args:
+        - start_qdate (QDate): Start date in QDate format.
+        - end_qdate (QDate): End date in QDate format.
 
+        Returns:
+        - str: Datetime range in RFC3339 format.
+        """
+
+        # Convert start QDate to RFC3339 format
+        start_datetime = datetime(start_qdate.year(), start_qdate.month(), start_qdate.day(), 0, 0, 0).isoformat() + 'Z'
+
+        # Convert end QDate to RFC3339 format
+        end_datetime = datetime(end_qdate.year(), end_qdate.month(), end_qdate.day(), 0, 0, 0).isoformat() + 'Z'
+
+        return f"{start_datetime}/{end_datetime}"
+     
     def search_image(self):
         try:
             self.start_processing()
@@ -259,10 +289,9 @@ class SentinelImageExplorerWidget(QWidget):
             selected_collection = self.collectionComboBox.currentText()
             bands_text = self.bandsLineEdit.text()
             bands_list = bands_text.replace(" ", "").split(",")
+            
             self.update_progress(10)
 
-            bands = "&".join([f"assets={band}" for band in bands_list])
-            color_formula = self.colorFormulaLineEdit.text()
             lat, lon = map(float, coord_text.split(','))
 
             self.update_progress(13)
@@ -272,43 +301,51 @@ class SentinelImageExplorerWidget(QWidget):
             start_date = self.startDateEdit.date()
             end_date = self.endDateEdit.date()
 
-            iso_start_date = f"{start_date.year()}-{start_date.month():02d}-{start_date.day():02d}"
-            iso_end_date = f"{end_date.year()}-{end_date.month():02d}-{end_date.day():02d}"
-
             self.update_progress(16)
 
-            date_range = f"{iso_start_date}/{iso_end_date}"
+            date_range = self.get_datetime_range(start_date, end_date)
+            
             search = Search(url=Constants.STAC_API_URL,
                             intersects=geometry,
                             datetime=date_range,
-                            collections=[Constants.COLLECTION],
-                            query={'eo:cloud_cover': {'lt': Constants.CLOUD_COVER_LIMIT}})
+                            collections=[selected_collection],
+                            query={'eo:cloud_cover': {'lt': Constants.CLOUD_COVER_LIMIT}}, limit=1000)
 
             items = sorted(search.items(), key=lambda item: item.properties['eo:cloud_cover'])
-
-            self.update_progress(30)
+            
+            self.update_progress(20)
 
             total_images = len(items)
-            progress_per_image = 100.0 / total_images
+            progress_per_image = 80.0 / total_images
 
             images = []
 
             for i, item in enumerate(items):
+                
                 date_string = re.search(r'\d{8}', item.id).group()
                 date = datetime.strptime(date_string, '%Y%m%d')
                 name = date.strftime('%d/%m/%Y')
-                url = f"https://titiler.xyz/stac/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}@1x?url={Constants.STAC_API_URL}/collections/{selected_collection}/items/{item.id}&{bands}&color_formula={color_formula}"
-                images.append({
-                    "id": item.id,
-                    "name": f"{selected_collection.upper()} - {name}",
-                    "date": date,
-                    "url": url
-                })
+                
+                urls = [f"/vsicurl/{item.assets[b]['href']}" for b in bands_list]
+                composite_name = f"{selected_collection.upper()} - {name}"
+                
+                layer = self.build_and_load_vrt(urls, item.id, composite_name)
+                print(layer)
+                if layer:
+                    images.append({
+                        "id": item.id,
+                        "name": composite_name,
+                        "date": date,
+                        "layer": layer
+                    })
+                
+                layer = None
                 self.update_progress(5 + (i + 1) * progress_per_image)
 
             self.finish_progress()
             self.images = images
         except Exception as e:
+            print(e)
             self.finish_progress()
             msg = iface.messageBar().createMessage("S2_SEARCH", f"Error Searching Images -> {e}")
             iface.messageBar().pushWidget(msg, level=Qgis.Critical)
@@ -338,22 +375,13 @@ class SentinelImageExplorerWidget(QWidget):
         ).setItemVisibilityChecked(True)
 
     def add_layer(self, image):
-        tile_url = image['url']
-        service_url = tile_url.replace('=', '%3D').replace('&', '%26')
+        image['layer'].setCustomProperty("id", image['id'])
+        image['layer'].setCustomProperty("date", image['date'])
+        image['layer'].setCustomProperty("layer_id", image['layer'].id())
 
-        qgis_tms_uri = 'type=xyz&zmin={0}&zmax={1}&url={2}'.format(
-            8, 14, service_url
-        )
-
-        layer = QgsRasterLayer(qgis_tms_uri, image['name'], 'wms')
-        layer.setCustomProperty("id", image['id'])
-        layer.setCustomProperty("date", image['date'])
-        layer.setCustomProperty("url", image['url'])
-
-        if layer.isValid():
-            QgsProject.instance().addMapLayer(layer)
-            QgsProject.instance().layerTreeRoot().findLayer(layer).setItemVisibilityChecked(False)
-            return layer.id()
+        if image['layer'].isValid():
+            QgsProject.instance().layerTreeRoot().findLayer(image['layer']).setItemVisibilityChecked(False)
+            return image['layer'].id()
 
         return None
 
